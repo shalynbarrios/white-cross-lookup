@@ -77,7 +77,15 @@ section.group{margin-top:44px}
 .stepnav{display:flex;align-items:center;gap:14px;margin:34px 0 0}
 .stepnav p{margin:0;color:var(--muted);font-weight:700}
 @media (max-width:760px){header,.prac{grid-template-columns:1fr}.hero-net{order:-1;max-width:420px}}
-@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+#modal{position:fixed;inset:0;background:rgba(10,12,16,.72);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50;animation:fade .18s ease}
+#modal[hidden]{display:none}
+@keyframes fade{from{opacity:0}}
+.m-box{background:var(--panel);border-radius:16px;padding:18px;width:min(860px,100%);max-height:100%;overflow:auto;box-shadow:0 24px 60px rgba(0,0,0,.45)}
+.m-top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+.m-top p{margin:0;color:var(--muted);font-weight:700}
+.m-net{padding:16px}
+#m-moves{margin-top:14px;justify-content:center}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
@@ -195,6 +203,18 @@ section.group{margin-top:44px}
 </div>
 </div>
 
+<div id="modal" hidden>
+  <div class="m-box" role="dialog" aria-modal="true" aria-label="Animated solution">
+    <div class="m-top">
+      <button class="btn ghost" id="m-back" aria-label="Close and go back">&larr; Back</button>
+      <p id="m-sub"></p>
+      <button class="btn" id="m-replay">Play again</button>
+    </div>
+    <div class="net m-net" id="m-net"></div>
+    <div class="moves" id="m-moves"></div>
+  </div>
+</div>
+
 <script>
 const CASES = [{"pos":[0,1,1],"n":[0,1,0],"len":1,"sol":"F2","alts":[]},{"pos":[0,1,1],"n":[0,0,1],"len":4,"sol":"U L F' L'","alts":["R U' R' F"]},{"pos":[1,1,0],"n":[1,0,0],"len":3,"sol":"R' F R","alts":[]},{"pos":[1,1,0],"n":[0,1,0],"len":2,"sol":"U F2","alts":[]},{"pos":[0,1,-1],"n":[0,1,0],"len":2,"sol":"U2 F2","alts":[]},{"pos":[0,1,-1],"n":[0,0,-1],"len":4,"sol":"U R' F R","alts":["R U R' F"]},{"pos":[-1,1,0],"n":[-1,0,0],"len":3,"sol":"L F' L'","alts":[]},{"pos":[-1,1,0],"n":[0,1,0],"len":2,"sol":"U' F2","alts":[]},{"pos":[1,0,1],"n":[1,0,0],"len":1,"sol":"F","alts":[]},{"pos":[1,0,1],"n":[0,0,1],"len":3,"sol":"D R' D'","alts":[]},{"pos":[-1,0,1],"n":[-1,0,0],"len":1,"sol":"F'","alts":[]},{"pos":[-1,0,1],"n":[0,0,1],"len":3,"sol":"D' L D","alts":[]},{"pos":[1,0,-1],"n":[1,0,0],"len":3,"sol":"R2 F R2","alts":["D2 B' D2"]},{"pos":[1,0,-1],"n":[0,0,-1],"len":3,"sol":"D R D'","alts":[]},{"pos":[-1,0,-1],"n":[-1,0,0],"len":3,"sol":"L2 F' L2","alts":["D2 B D2"]},{"pos":[-1,0,-1],"n":[0,0,-1],"len":3,"sol":"D' L' D","alts":[]},{"pos":[0,-1,1],"n":[0,0,1],"len":4,"sol":"F D' L D","alts":["D R D' F"]}];
 const FACES={U:[0,1,0],D:[0,-1,0],R:[1,0,0],L:[-1,0,0],F:[0,0,1],B:[0,0,-1]};
@@ -247,6 +267,24 @@ function makePlayer(netEl,movesEl,sol,base){
 // Hero: the case from the user's own picture (white-blue at top, solved by U L2) shown as white-green equivalent
 document.getElementById('hero').innerHTML=svg(caseCube(['U','F2']));
 
+// Modal: a big version of any animation, over a dark overlay
+const modal=document.getElementById('modal');
+let mPlayer=null,mLastFocus=null;
+function openModal(sol,base){mLastFocus=document.activeElement;
+  document.getElementById('m-moves').innerHTML='';
+  document.getElementById('m-sub').textContent=`${sol.length} move${sol.length>1?'s':''}`;
+  mPlayer=makePlayer(document.getElementById('m-net'),document.getElementById('m-moves'),sol,base);
+  modal.hidden=false;document.body.style.overflow='hidden';
+  document.getElementById('m-back').focus();
+  mPlayer.play();}
+function closeModal(){if(modal.hidden)return;modal.hidden=true;document.body.style.overflow='';
+  if(mPlayer){mPlayer.stop();mPlayer=null;}
+  if(mLastFocus&&mLastFocus.focus)mLastFocus.focus();}
+modal.addEventListener('click',e=>{if(e.target===modal)closeModal();});
+document.getElementById('m-back').onclick=closeModal;
+document.getElementById('m-replay').onclick=()=>mPlayer&&mPlayer.play();
+addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+
 // Tabs
 const tL=document.getElementById('tab-learn'),tP=document.getElementById('tab-prac');
 const tY=document.getElementById('tab-any');
@@ -263,7 +301,7 @@ function next(){let i;do{i=Math.floor(Math.random()*CASES.length)}while(i===last
   pShow.disabled=false;pPlay.disabled=true;score();}
 function score(){document.getElementById('p-score').textContent=`Cases seen: ${seen}. Fixes revealed: ${peeked}.`;}
 pShow.onclick=()=>{if(revealed)return;revealed=true;peeked++;pMoves.innerHTML='';player=makePlayer(pNet,pMoves,cur.sol.split(' '));pShow.disabled=true;pPlay.disabled=false;score();};
-pPlay.onclick=()=>player&&player.play();
+pPlay.onclick=()=>cur&&openModal(cur.sol.split(' '));
 document.getElementById('p-next').onclick=next;
 
 // ===== Any-cross lookup =====
@@ -296,7 +334,8 @@ function builderInit(){if(B)return;buildDist();B=HOME.slice();
   const ex=(arr)=>arr.map(([p,n])=>SIDX.get(sk(p,n)));
   document.getElementById('b-ex1').onclick=()=>{B=ex([[[0,-1,1],[0,-1,0]],[[1,0,1],[0,0,1]],[[-1,1,0],[0,1,0]],[[0,1,1],[0,0,1]]]);update();};
   document.getElementById('b-ex2').onclick=()=>{B=ex([[[-1,0,1],[0,0,1]],[[0,-1,-1],[0,0,-1]],[[-1,-1,0],[-1,0,0]],[[1,0,1],[0,0,1]]]);update();};
-  document.getElementById('b-play').onclick=bPlay;document.getElementById('b-reset').onclick=()=>{bStop();bGoto(0);};
+  document.getElementById('b-play').onclick=()=>{if(!bSol.length)return;const s=B.slice(),sol=bSol.slice();openModal(sol,()=>piecesCube(s));};
+  document.getElementById('b-reset').onclick=()=>{bStop();bGoto(0);};
   update();}
 function place(i){const posKey=STK[i].pos.join();const other=B.findIndex((x,k)=>k!==sel&&STK[x].pos.join()===posKey);
   if(other>=0)B[other]=B[sel];B[sel]=i;update();}
@@ -308,7 +347,6 @@ function bDraw(){const net=document.getElementById('b-net');
   net.querySelectorAll('.cellbtn').forEach(r=>{const go=()=>{bStop();place(+r.dataset.i)};r.onclick=go;r.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}};});
   document.querySelectorAll('#b-moves .chip').forEach((c,i)=>{c.classList.toggle('done',i<bIdx-1||(i<bIdx&&!bTimer));c.classList.toggle('now',bTimer!==null&&i===bIdx-1);});}
 function bGoto(k){let st=piecesCube(B);for(let i=0;i<k;i++)applyMove(st,bSol[i]);bCube=st;bIdx=k;bDraw();}
-function bPlay(){bStop();bGoto(0);if(!bSol.length)return;bTimer=setInterval(()=>{if(bIdx>=bSol.length){bStop();bDraw();return;}applyMove(bCube,bSol[bIdx]);bIdx++;bDraw();},850);}
 function update(){bStop();bSol=solveCross(B);
   // which move lands each piece for good
   const trace=[B.slice()];bSol.forEach(m=>{const mi=MOVES.indexOf(m);trace.push(trace[trace.length-1].map(x=>MT[mi][x]));});
@@ -361,7 +399,7 @@ function learnCard(ex){const s=stateOf(ex);const sol=solveCross(s);
   const card=document.createElement('div');card.className='case';
   card.innerHTML=`<div class="net"></div><p class="where"><strong>${ex.t}.</strong> ${describeB(s).join(' ')}</p><p class="alt">${scrText(sol)}</p><div class="moves"></div><div class="controls"><button class="btn">Play</button><button class="btn ghost">Reset</button></div>`;
   const p=makePlayer(card.querySelector('.net'),card.querySelector('.moves'),sol,()=>piecesCube(s));
-  const[pl,rs]=card.querySelectorAll('.controls button');pl.onclick=()=>p.play();rs.onclick=()=>p.reset();
+  const[pl,rs]=card.querySelectorAll('.controls button');pl.onclick=()=>openModal(sol,()=>piecesCube(s));rs.onclick=()=>p.reset();
   return card;}
 let fcAsked=0,fcRight=0,fcAns=null,fcDone=false,fcLast=-1,lStep=0,learnBuilt=false;
 function fcNext(){let i;do{i=Math.floor(Math.random()*8)}while(i===fcLast);fcLast=i;
