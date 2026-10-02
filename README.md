@@ -2,8 +2,8 @@
 
 Set up any Rubik's cube white cross and get the shortest solution, move by move.
 
-- **Look up any cross**: tap where each white edge is and get the optimal fix, with an animated playback.
-- **One-edge cases**: all 17 places a single cross edge can hide, with the fix for each.
+- **Look up any cross**: tap where each white edge is and get the optimal fix, with an animated playback — plus a scramble (performed white up, green front, then flip) to recreate the exact state on a real cube.
+- **Step-by-step guide**: color-neighbour flashcards, then worked examples with one bad edge, then two, each with its own setup scramble.
 - **Practice**: random one-edge cases to solve in your head.
 
 It's a single static `index.html` with no build step and no dependencies.

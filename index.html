@@ -74,6 +74,8 @@ section.group{margin-top:44px}
 .hidden-sol{color:var(--muted);font-style:italic;align-self:center}
 .score{color:var(--muted);margin-top:18px}
 .prac .controls{flex-wrap:wrap;margin-top:18px}
+.stepnav{display:flex;align-items:center;gap:14px;margin:34px 0 0}
+.stepnav p{margin:0;color:var(--muted);font-weight:700}
 @media (max-width:760px){header,.prac{grid-template-columns:1fr}.hero-net{order:-1;max-width:420px}}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
@@ -83,8 +85,8 @@ section.group{margin-top:44px}
 <header>
   <div>
     <h1>Solve any white cross</h1>
-    <p class="lede">Set up your cross below and get the shortest fix, move by move. When you want to learn the patterns, the one-edge cases cover all 17 places a single piece can hide.</p>
-    <p class="hold">Hold the cube with white on the bottom, then turn the whole cube so the empty slot is facing you. Every case is drawn that way: the missing piece is white-green, and its home is bottom-front.</p>
+    <p class="lede">Set up your cross below and get the shortest fix, move by move. When you want to learn the patterns, the step-by-step guide starts from a solved cross and works up to fixing two bad edges.</p>
+    <p class="hold">Hold the cube with white on the bottom and green facing you. Scrambles are given the standard way — white up, green front — then you flip the cube upside down and solve. In the practice cases the missing piece is white-green, and its home is bottom-front.</p>
   </div>
   <div class="hero-net" id="hero"></div>
 </header>
@@ -97,11 +99,46 @@ section.group{margin-top:44px}
 
 <div class="tabs" role="tablist">
   <button role="tab" aria-selected="true" id="tab-any">Look up any cross</button>
-  <button role="tab" aria-selected="false" id="tab-all">One-edge cases</button>
+  <button role="tab" aria-selected="false" id="tab-learn">Step-by-step guide</button>
   <button role="tab" aria-selected="false" id="tab-prac">Practice</button>
 </div>
 
-<div id="all" style="display:none"></div>
+<div id="learn" style="display:none">
+  <div class="stepnav">
+    <button class="btn ghost" id="l-prev">&larr; Back</button>
+    <p id="l-ind">Step 1 of 3</p>
+    <button class="btn" id="l-next">Next &rarr;</button>
+  </div>
+
+  <section class="group" id="ls0">
+    <h2>Step 1 · The solved cross, and knowing your colors</h2>
+    <p class="rule">This is the goal: all four white edges on the bottom, each one's side sticker matching the center it touches. Before fixing anything, make sure you know which color sits beside which.</p>
+    <div class="prac">
+      <div class="net" id="l-solved"></div>
+      <div>
+        <h2 style="font-size:1.35rem">Quick flashcards</h2>
+        <p class="where">White stays on the bottom. If you know each color's neighbours, a misplaced edge tells you instantly which way to send it.</p>
+        <p id="fc-q" style="margin:16px 0 10px"></p>
+        <div class="pieces" id="fc-opts" style="margin-top:0"></div>
+        <p class="where" id="fc-fb" style="min-height:1.4em;margin-top:12px"></p>
+        <div class="controls"><button class="btn ghost" id="fc-next">Next card</button></div>
+        <p class="score" id="fc-score"></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="group" id="ls1" style="display:none">
+    <h2>Step 2 · One edge is wrong</h2>
+    <p class="rule">Three edges are home, one needs help. Set each case up on a real cube with its scramble, then play the fix move by move.</p>
+    <div class="grid" id="l-grid1"></div>
+  </section>
+
+  <section class="group" id="ls2" style="display:none">
+    <h2>Step 3 · Two edges are wrong</h2>
+    <p class="rule">Now two pieces need help at once. The same ideas apply — the solver just orders the moves so one fix doesn't undo the other.</p>
+    <div class="grid" id="l-grid2"></div>
+  </section>
+</div>
 
 <div id="any" style="margin-top:34px">
   <div class="prac">
@@ -121,6 +158,7 @@ section.group{margin-top:44px}
       <p class="where" id="b-sub"></p>
       <div class="moves" id="b-moves"></div>
       <p class="alt" id="b-legend"></p>
+      <p class="alt" id="b-scr"></p>
       <div class="controls"><button class="btn" id="b-play">Play it</button><button class="btn ghost" id="b-reset">Back to start</button></div>
     </div>
   </div>
@@ -132,6 +170,7 @@ section.group{margin-top:44px}
     <div>
       <h2 id="p-title">Where does it go?</h2>
       <p class="where" id="p-where"></p>
+      <p class="alt" id="p-scr"></p>
       <div class="moves" id="p-moves"></div>
       <div class="controls">
         <button class="btn" id="p-show">Show the fix</button>
@@ -153,6 +192,11 @@ function rot(v,a,s){const[x,y,z]=v;if(a===0)return[x,-s*z,s*y];if(a===1)return[s
 function applyMove(st,m){const n=FACES[m[0]];const a=n.findIndex(c=>c!==0);const layer=n[a];const q=-layer;const t=m.length===1?1:(m[1]==="'"?3:2);
   for(const s of st){if(s.pos[a]===layer){for(let i=0;i<t;i++){s.pos=rot(s.pos,a,q);s.n=rot(s.n,a,q);}}}}
 const inv=m=>m.length===1?m+"'":(m[1]==="'"?m[0]:m);
+// Scramble that recreates a state: inverse of the solution, with letters mirrored
+// through z2 (U<->D, R<->L) so it can be performed holding white up, green front.
+const Z2MAP={U:'D',D:'U',R:'L',L:'R',F:'F',B:'B'};
+const scrambleFor=sol=>sol.slice().reverse().map(inv).map(m=>Z2MAP[m[0]]+m.slice(1));
+const scrText=sol=>`Recreate it on a real cube — start solved, white up, green facing you: <span>${scrambleFor(sol).map(m=>m.replace("'","′")).join(' ')}</span> — then flip the cube upside down, green still in front.`;
 function solvedCube(){const st=[];for(let x=-1;x<=1;x++)for(let y=-1;y<=1;y++)for(let z=-1;z<=1;z++){const p=[x,y,z];const nz=p.filter(c=>c!==0).length;if(nz===0)continue;
   for(let a=0;a<3;a++){if(p[a]===0)continue;const n=[0,0,0];n[a]=p[a];const face=Object.keys(FACES).find(k=>FACES[k].join()===n.join());
    const show= nz===1 || (nz===2 && y===-1);
@@ -174,19 +218,11 @@ const show=m=>m.replace("'","′");
 const PLACE={'0,1,1':'top layer, front','1,1,0':'top layer, right','0,1,-1':'top layer, back','-1,1,0':'top layer, left','1,0,1':'middle layer, front-right','-1,0,1':'middle layer, front-left','1,0,-1':'middle layer, back-right','-1,0,-1':'middle layer, back-left','0,-1,1':'in its slot, but flipped'};
 const DIR={'0,1,0':'up','0,0,1':'toward you','0,0,-1':'away from you','1,0,0':'to the right','-1,0,0':'to the left'};
 function describe(c){const p=c.pos.join();return p==='0,-1,1'?'In its slot, but white faces you.':`In the ${PLACE[p]}, white facing ${DIR[c.n.join()]}.`;}
-function group(c){const[x,y,z]=c.pos;if(y===1)return c.n[1]===1?'up':'out';if(y===0)return z===1?'mf':'mb';return 'flip';}
-const GROUPS=[
- ['up','Top layer, white facing up','Turn the top until the piece sits above the empty slot, then F2 drops it straight in.'],
- ['out','Top layer, white facing out','Move it to the right or left side of the top first. From there, R′ F R or L F′ L′ tucks it in.'],
- ['mf','Middle layer, front','If white faces sideways, one turn of the front does it. If white faces you, the D turns move the slot under the piece, then put the slot back.'],
- ['mb','Middle layer, back','Same ideas as the front pieces, with an extra setup turn because the piece starts behind.'],
- ['flip','In its slot, but flipped','Pop it out to the middle layer with F, then it becomes a middle-layer case.']];
-
-// Player: binds a cube, a net container, and chips
-function makePlayer(netEl,movesEl,sol){
+// Player: binds a cube, a net container, and chips. `base` optionally supplies the start state.
+function makePlayer(netEl,movesEl,sol,base){
   let st,idx=0,timer=null;
   const chips=sol.map((m,i)=>{const b=document.createElement('button');b.className='chip';b.textContent=show(m);b.setAttribute('aria-label',`Show the cube after move ${i+1}, ${m}`);b.onclick=()=>{stop();goto(i+1)};movesEl.appendChild(b);return b;});
-  function goto(k){st=caseCube(sol);for(let i=0;i<k;i++)applyMove(st,sol[i]);idx=k;draw();}
+  function goto(k){st=base?base():caseCube(sol);for(let i=0;i<k;i++)applyMove(st,sol[i]);idx=k;draw();}
   function draw(){netEl.innerHTML=svg(st);chips.forEach((c,i)=>{c.classList.toggle('done',i<idx-1||(i<idx&&!timer));c.classList.toggle('now',timer!==null&&i===idx-1);});}
   function stop(){if(timer){clearInterval(timer);timer=null;}}
   function play(onEnd){stop();goto(0);const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -199,25 +235,11 @@ function makePlayer(netEl,movesEl,sol){
 // Hero: the case from the user's own picture (white-blue at top, solved by U L2) shown as white-green equivalent
 document.getElementById('hero').innerHTML=svg(caseCube(['U','F2']));
 
-const all=document.getElementById('all');
-for(const[g,title,rule]of GROUPS){
-  const list=CASES.filter(c=>group(c)===g).sort((a,b)=>a.sol.split(' ').length-b.sol.split(' ').length);
-  const sec=document.createElement('section');sec.className='group';
-  sec.innerHTML=`<h2>${title}</h2><p class="rule">${rule}</p><div class="grid"></div>`;
-  const grid=sec.querySelector('.grid');
-  for(const c of list){const sol=c.sol.split(' ');
-    const card=document.createElement('div');card.className='case';
-    card.innerHTML=`<div class="net"></div><p class="where">${describe(c)}</p><div class="moves"></div>${c.alts.length?`<p class="alt">Also works: <span>${c.alts.map(a=>a.split(' ').map(show).join(' ')).join(', ')}</span></p>`:''}<div class="controls"><button class="btn">Play</button><button class="btn ghost">Reset</button></div>`;
-    const p=makePlayer(card.querySelector('.net'),card.querySelector('.moves'),sol);
-    const[pl,rs]=card.querySelectorAll('.controls button');pl.onclick=()=>p.play();rs.onclick=()=>p.reset();
-    grid.appendChild(card);}
-  all.appendChild(sec);}
-
 // Tabs
-const tA=document.getElementById('tab-all'),tP=document.getElementById('tab-prac');
+const tL=document.getElementById('tab-learn'),tP=document.getElementById('tab-prac');
 const tY=document.getElementById('tab-any');
-function tab(w){[[tA,'all'],[tP,'practice'],[tY,'any']].forEach(([t,id])=>{t.setAttribute('aria-selected',w===id);document.getElementById(id).style.display=w===id?'block':'none';});}
-tA.onclick=()=>tab('all');tP.onclick=()=>{tab('practice');if(!cur)next();};tY.onclick=()=>{tab('any');builderInit();};
+function tab(w){[[tL,'learn'],[tP,'practice'],[tY,'any']].forEach(([t,id])=>{t.setAttribute('aria-selected',w===id);document.getElementById(id).style.display=w===id?'block':'none';});}
+tL.onclick=()=>{tab('learn');learnInit();};tP.onclick=()=>{tab('practice');if(!cur)next();};tY.onclick=()=>{tab('any');builderInit();};
 
 // Practice
 let cur=null,player=null,last=-1,seen=0,peeked=0,revealed=false;
@@ -225,6 +247,7 @@ const pNet=document.getElementById('p-net'),pMoves=document.getElementById('p-mo
 function next(){let i;do{i=Math.floor(Math.random()*CASES.length)}while(i===last&&CASES.length>1);last=i;cur=CASES[i];seen++;revealed=false;
   if(player)player.stop();pMoves.innerHTML='<span class="hidden-sol">Work out the moves, then check.</span>';
   pNet.innerHTML=svg(caseCube(cur.sol.split(' ')));document.getElementById('p-where').textContent=describe(cur);
+  document.getElementById('p-scr').innerHTML=scrText(cur.sol.split(' '));
   pShow.disabled=false;pPlay.disabled=true;score();}
 function score(){document.getElementById('p-score').textContent=`Cases seen: ${seen}. Fixes revealed: ${peeked}.`;}
 pShow.onclick=()=>{if(revealed)return;revealed=true;peeked++;pMoves.innerHTML='';player=makePlayer(pNet,pMoves,cur.sol.split(' '));pShow.disabled=true;pPlay.disabled=false;score();};
@@ -285,7 +308,60 @@ function update(){bStop();bSol=solveCross(B);
   document.getElementById('b-title').textContent=bSol.length?`${bSol.length} move${bSol.length>1?'s':''}`:'Cross is solved';
   document.getElementById('b-sub').textContent=out?`${out} piece${out>1?'s':''} out of place.`:'Move a piece to look up a case.';
   document.getElementById('b-legend').textContent=bSol.length?'A colored bar under a move means that piece is home for good after it.':'';
+  document.getElementById('b-scr').innerHTML=bSol.length?scrText(bSol):'';
   document.getElementById('b-play').disabled=!bSol.length;bGoto(0);}
+// ===== Step-by-step guide =====
+// With white on the bottom, each color's right-hand neighbour is the next in this ring.
+const RING=PNAME.slice();
+const RFILL={green:FILL.F,orange:FILL.R,blue:FILL.B,red:FILL.L};
+const swq=c=>`<span class="sw"><i style="background:${RFILL[c]}"></i></span>`;
+const LPLACE={'0,1,1':'top layer, front','1,1,0':'top layer, right','0,1,-1':'top layer, back','-1,1,0':'top layer, left','1,0,1':'middle layer, front-right','-1,0,1':'middle layer, front-left','1,0,-1':'middle layer, back-right','-1,0,-1':'middle layer, back-left','0,-1,1':'bottom layer, front slot','1,-1,0':'bottom layer, right slot','0,-1,-1':'bottom layer, back slot','-1,-1,0':'bottom layer, left slot'};
+const LDIR={'0,1,0':'up','0,-1,0':'down','0,0,1':'toward you','0,0,-1':'away from you','1,0,0':'right','-1,0,0':'left'};
+// Pieces: 0 green (front), 1 orange (right), 2 blue (back), 3 red (left). Unlisted pieces stay home.
+const LEX1=[
+ {t:'In its slot, but flipped',set:{1:[[1,-1,0],[1,0,0]]}},
+ {t:'On top, white facing up',set:{0:[[0,1,-1],[0,1,0]]}},
+ {t:'On top, white facing out',set:{3:[[-1,1,0],[-1,0,0]]}},
+ {t:'Hiding in the middle layer',set:{0:[[1,0,1],[1,0,0]]}}];
+const LEX2=[
+ {t:'One flipped, one on top',set:{1:[[1,-1,0],[1,0,0]],0:[[0,1,-1],[0,1,0]]}},
+ {t:'Two neighbours swapped',set:{0:[[1,-1,0],[0,-1,0]],1:[[0,-1,1],[0,-1,0]]}},
+ {t:'Both flipped at home',set:{0:[[0,-1,1],[0,0,1]],2:[[0,-1,-1],[0,0,-1]]}},
+ {t:'One in the middle, one on top',set:{3:[[-1,0,1],[-1,0,0]],2:[[1,1,0],[1,0,0]]}},
+ {t:'Opposite edges swapped',set:{0:[[0,-1,-1],[0,-1,0]],2:[[0,-1,1],[0,-1,0]]}}];
+function stateOf(ex){const s=HOME.slice();for(const k in ex.set){const[p,n]=ex.set[k];s[k]=SIDX.get(sk(p,n));}return s;}
+function describeB(s){const out=[];s.forEach((x,k)=>{if(x===HOME[k])return;const{pos,n}=STK[x];
+  if(pos.join()===HOMEPOS[k].join())out.push(`White-${PNAME[k]} is home but flipped: ${PNAME[k]} sits on the bottom instead of white.`);
+  else out.push(`White-${PNAME[k]} is in the ${LPLACE[pos.join()]}, white facing ${LDIR[n.join()]}.`);});return out;}
+function learnCard(ex){const s=stateOf(ex);const sol=solveCross(s);
+  const card=document.createElement('div');card.className='case';
+  card.innerHTML=`<div class="net"></div><p class="where"><strong>${ex.t}.</strong> ${describeB(s).join(' ')}</p><p class="alt">${scrText(sol)}</p><div class="moves"></div><div class="controls"><button class="btn">Play</button><button class="btn ghost">Reset</button></div>`;
+  const p=makePlayer(card.querySelector('.net'),card.querySelector('.moves'),sol,()=>piecesCube(s));
+  const[pl,rs]=card.querySelectorAll('.controls button');pl.onclick=()=>p.play();rs.onclick=()=>p.reset();
+  return card;}
+let fcAsked=0,fcRight=0,fcAns=null,fcDone=false,fcLast=-1,lStep=0,learnBuilt=false;
+function fcNext(){let i;do{i=Math.floor(Math.random()*8)}while(i===fcLast);fcLast=i;
+  const ci=i%4,side=i<4?'right':'left';const front=RING[ci];fcAns=side==='right'?RING[(ci+1)%4]:RING[(ci+3)%4];fcDone=false;
+  document.getElementById('fc-q').innerHTML=`White on the bottom, ${swq(front)} <strong>${front}</strong> facing you. Which color is on your <strong>${side}</strong>?`;
+  document.getElementById('fc-fb').textContent='';
+  const w=document.getElementById('fc-opts');w.innerHTML='';
+  RING.filter(c=>c!==front).sort(()=>Math.random()-.5).forEach(c=>{const b=document.createElement('button');b.className='pc';b.innerHTML=`${swq(c)}${c}`;
+    b.onclick=()=>{if(fcDone)return;fcDone=true;fcAsked++;const ok=c===fcAns;if(ok)fcRight++;
+      document.getElementById('fc-fb').textContent=ok?`Yes — ${fcAns}.`:`Not quite — it’s ${fcAns}.`;
+      document.getElementById('fc-score').textContent=`${fcRight} of ${fcAsked} correct.`;};
+    w.appendChild(b);});}
+function showStep(i){lStep=i;[0,1,2].forEach(j=>{document.getElementById('ls'+j).style.display=j===i?'block':'none';});
+  document.getElementById('l-ind').textContent=`Step ${i+1} of 3`;
+  document.getElementById('l-prev').disabled=i===0;document.getElementById('l-next').disabled=i===2;}
+function learnInit(){if(learnBuilt)return;learnBuilt=true;builderInit();
+  document.getElementById('l-solved').innerHTML=svg(piecesCube(HOME.slice()));
+  LEX1.forEach(ex=>document.getElementById('l-grid1').appendChild(learnCard(ex)));
+  LEX2.forEach(ex=>document.getElementById('l-grid2').appendChild(learnCard(ex)));
+  document.getElementById('fc-next').onclick=fcNext;
+  document.getElementById('l-prev').onclick=()=>showStep(lStep-1);
+  document.getElementById('l-next').onclick=()=>showStep(lStep+1);
+  fcNext();showStep(0);}
+
 tab('any');builderInit();
 </script>
 </body>
